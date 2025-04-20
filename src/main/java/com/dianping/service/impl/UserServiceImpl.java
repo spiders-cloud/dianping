@@ -1,10 +1,13 @@
 package com.dianping.
 service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.dianping.dto.LoginFormDTO;
 import com.dianping.dto.Result;
+import com.dianping.dto.UserDTO;
 import com.dianping.
 entity.User;
 import com.dianping.
@@ -72,10 +75,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //5.判断用户是否存在
         if(user == null){
             //不存在，则创建
+            log.info("用户不存在，创建新用户");
             user =  createUserWithPhone(phone);
         }
         //7.保存用户信息到session中
-        session.setAttribute("user",user);
+        session.setAttribute("user", BeanUtil.copyProperties(user, UserDTO.class));
 
         return Result.ok();
     }
