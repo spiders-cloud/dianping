@@ -1,5 +1,6 @@
-package com.dianping.utils;
+package com.dianping.interceptor;
 
+import com.dianping.utils.UserHolder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;

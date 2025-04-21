@@ -1,7 +1,7 @@
 package com.dianping.config;
 
-import com.dianping.utils.LoginInterceptor;
-import com.dianping.utils.RefreshTokenInterceptor;
+import com.dianping.interceptor.LoginInterceptor;
+import com.dianping.interceptor.RefreshTokenInterceptor;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
