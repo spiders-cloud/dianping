@@ -12,6 +12,7 @@ import com.dianping.entity.User;
 import com.dianping.mapper.UserMapper;
 import com.dianping.service.IUserService;
 import com.dianping.utils.RegexUtils;
+import com.dianping.utils.UserHolder;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
@@ -117,5 +118,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                               .setNickName(phone);
         save(user);
         return user;
+    }
+
+    @Override
+    public Result logout(String token) {
+        // 1.删除Redis中的token
+        String tokenKey = LOGIN_USER_KEY + token;
+        stringRedisTemplate.delete(tokenKey);
+        
+        // 2.清除ThreadLocal中的用户
+        UserHolder.removeUser();
+        
+        return Result.ok();
     }
 }
