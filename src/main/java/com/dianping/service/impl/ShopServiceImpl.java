@@ -11,6 +11,9 @@ import com.dianping.utils.RedisConstants;
 import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -34,24 +37,50 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     public Result queryById(Long id) {
         String key = RedisConstants.CACHE_SHOP_KEY + id;
         // 1.从redis查询商品缓存
-        String shopJson = stringRedisTemplate.opsForValue()
-                                             .get(key);
+        String shopJson = stringRedisTemplate.opsForValue().get(key);
         // 2.判断是否存在
         if (StrUtil.isNotBlank(shopJson)) {
             // 3.存在，直接返回
             Shop shop = JSONUtil.toBean(shopJson, Shop.class);
             return Result.ok(shop);
         }
+        // 判断命中是否是空值
+        if (shopJson != null) {
+            // 返回错误信息
+            return Result.fail("店铺不存在");
+        }
+
         // 4.不存在，根据id查询数据库
         Shop shop = getById(id);
         // 5.不存在，返回错误
         if (shop == null) {
+            // 解决缓存穿透问题 - 这里采用空值解决
+            stringRedisTemplate.opsForValue().set(key, "", RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
             return Result.fail("店铺不存在");
         }
         // 6.存在，写入redis
-        stringRedisTemplate.opsForValue()
-                           .set(key, JSONUtil.toJsonStr(shop));
+        stringRedisTemplate.opsForValue().set(
+                key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
         // 7.返回
         return Result.ok(shop);
+    }
+
+    /**
+     * 更新店铺信息
+     * @param shop
+     * @return
+     */
+    @Override
+    @Transactional
+    public Result update(Shop shop) {
+        Long id = shop.getId();
+        if (id == null) {
+            return Result.fail("店铺id不能为空");
+        }
+        // 1.更新数据库
+        updateById(shop);
+        // 2.删除缓存
+        stringRedisTemplate.delete(RedisConstants.CACHE_SHOP_KEY + id);
+        return Result.ok();
     }
 }
