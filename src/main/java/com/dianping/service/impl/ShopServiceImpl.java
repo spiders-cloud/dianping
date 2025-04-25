@@ -9,6 +9,7 @@ import com.dianping.dto.Result;
 import com.dianping.entity.Shop;
 import com.dianping.mapper.ShopMapper;
 import com.dianping.service.IShopService;
+import com.dianping.utils.CacheClient;
 import com.dianping.utils.RedisConstants;
 import com.dianping.utils.RedisData;
 import jakarta.annotation.Resource;
@@ -22,8 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.dianping.utils.RedisConstants.CACHE_SHOP_KEY;
-import static com.dianping.utils.RedisConstants.LOCK_SHOP_KEY;
+import static com.dianping.utils.RedisConstants.*;
 
 /**
  * <p>
@@ -39,6 +39,9 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private CacheClient cacheClient;
+
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
     /**
@@ -48,6 +51,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
      */
     @Override
     public Result queryById(Long id) {
+
         // 缓存穿透 - 解决方法：缓存空值，存在击穿问题
         // Shop shop = queryWithPassThroughV1(id);
 
@@ -58,7 +62,11 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         // Shop shop = queryWithMutexV3(id);
 
         // 逻辑过期解决缓存击穿
-        Shop shop = queryWithLogicalExpireV4(id);
+        // Shop shop = queryWithLogicalExpireV4(id);
+
+        // 封装为工具类
+        Shop shop = cacheClient.queryWithPassThrough(
+                CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
         if (shop == null) {
             return Result.fail("店铺不存在！");
         }
@@ -169,8 +177,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
                 return null;
             }
             // 6.存在，写入redis
-            stringRedisTemplate.opsForValue().set(
-                    key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+            stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), CACHE_SHOP_TTL, TimeUnit.MINUTES);
         } finally {
             // 7.释放互斥锁
             unlock(lockKey);
@@ -241,8 +248,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
                 return null;
             }
             // 6.存在，写入redis
-            stringRedisTemplate.opsForValue().set(
-                    key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+            stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), CACHE_SHOP_TTL, TimeUnit.MINUTES);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
@@ -283,8 +289,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             return null;
         }
         // 6.存在，写入redis
-        stringRedisTemplate.opsForValue().set(
-                key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), CACHE_SHOP_TTL, TimeUnit.MINUTES);
 
         return shop;
     }
