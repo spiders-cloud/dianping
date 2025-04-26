@@ -122,7 +122,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     /**
-     * 解决缓存穿透问题 - 这里采用互斥锁解决 + 自旋
+     * 解决缓存穿透问题 - 这里采用互斥锁解决 + 自旋-双检加锁策略
      * @param id
      * @return
      * @version 3.0
@@ -149,14 +149,9 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
         // 4.2 自旋锁解决缓存击穿问题
         while (!tryLock(lockKey)) {
-            log.info("Thread：{} 被阻塞", Thread.currentThread().getId());
-            // 4.3 休眠并重试
-            try {
-                TimeUnit.MILLISECONDS.sleep(20);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            // 再次检查缓存，可能有其他线程已经写入
+            // log.info("Thread：{} 被阻塞", Thread.currentThread().getId());
+
+            // 再次检查缓存，可能有其他线程已经写入--双检的一部分
             shopJson = stringRedisTemplate.opsForValue().get(key);
             if (StrUtil.isNotBlank(shopJson)) {
                 log.info("更新缓存成功，锁被释放，自旋Thread:{} 拿到缓存", Thread.currentThread().getId());
@@ -166,9 +161,21 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             if (shopJson != null) {
                 return null;
             }
+            // 4.3 休眠并重试
+            try {
+                TimeUnit.MILLISECONDS.sleep(20);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
         }
         try {
-            // 4.4.成功，根据id查询数据库
+            // 4.4.成功
+            // 4.5 获取锁后第二次检查缓存
+            shopJson = stringRedisTemplate.opsForValue().get(key);
+            if (StrUtil.isNotBlank(shopJson)) {
+                return JSONUtil.toBean(shopJson, Shop.class);
+            }
             shop = getById(id);
             // 5.不存在，返回错误
             if (shop == null) {
@@ -208,7 +215,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     /**
-     * 解决缓存穿透问题 - 这里采用互斥锁解决 + 递归
+     * 解决缓存击穿问题 - 这里采用互斥锁解决 + 递归
      * @param id
      * @return
      * @version 2.0
