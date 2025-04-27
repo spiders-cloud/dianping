@@ -1,22 +1,17 @@
-package com.dianping.
-controller;
+package com.dianping.controller;
 
 
-import com.dianping.
-dto.Result;
-import com.dianping.
-entity.Voucher;
-import com.dianping.
-service.IVoucherService;
+import com.dianping.dto.Result;
+import com.dianping.entity.Voucher;
+import com.dianping.service.IVoucherService;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
 
 /**
  * <p>
- *  前端控制器
+ * 前端控制器
  * </p>
- *
  * @author 虎哥
  * @since 2021-12-22
  */
@@ -56,6 +51,6 @@ public class VoucherController {
      */
     @GetMapping("/list/{shopId}")
     public Result queryVoucherOfShop(@PathVariable("shopId") Long shopId) {
-       return voucherService.queryVoucherOfShop(shopId);
+        return voucherService.queryVoucherOfShop(shopId);
     }
 }

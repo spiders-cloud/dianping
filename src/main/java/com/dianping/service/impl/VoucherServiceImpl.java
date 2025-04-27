@@ -1,30 +1,26 @@
-package com.dianping.
-service.impl;
+package com.dianping.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.dianping.
-dto.Result;
-import com.dianping.
-entity.Voucher;
-import com.dianping.
-mapper.VoucherMapper;
-import com.dianping.
-entity.SeckillVoucher;
-import com.dianping.
-service.ISeckillVoucherService;
-import com.dianping.
-service.IVoucherService;
+import com.dianping.dto.Result;
+import com.dianping.entity.SeckillVoucher;
+import com.dianping.entity.Voucher;
+import com.dianping.mapper.VoucherMapper;
+import com.dianping.service.ISeckillVoucherService;
+import com.dianping.service.IVoucherService;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import static com.dianping.utils.RedisConstants.SECKILL_STOCK_KEY;
+
 /**
  * <p>
- *  服务实现类
+ * 服务实现类
  * </p>
- *
  * @author 虎哥
  * @since 2021-12-22
  */
@@ -33,6 +29,8 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
 
     @Resource
     private ISeckillVoucherService seckillVoucherService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Result queryVoucherOfShop(Long shopId) {
@@ -42,6 +40,10 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
         return Result.ok(vouchers);
     }
 
+    /**
+     * 添加秒杀券
+     * @param voucher 凭证
+     */
     @Override
     @Transactional
     public void addSeckillVoucher(Voucher voucher) {
@@ -54,5 +56,7 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
         seckillVoucher.setBeginTime(voucher.getBeginTime());
         seckillVoucher.setEndTime(voucher.getEndTime());
         seckillVoucherService.save(seckillVoucher);
+        // 保存秒杀库存到redis中
+        stringRedisTemplate.opsForValue().set(SECKILL_STOCK_KEY + voucher.getId(), voucher.getStock().toString());
     }
 }

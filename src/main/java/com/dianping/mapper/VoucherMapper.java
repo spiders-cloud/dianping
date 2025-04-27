@@ -1,9 +1,7 @@
-package com.dianping.
-mapper;
+package com.dianping.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.dianping.
-entity.Voucher;
+import com.dianping.entity.Voucher;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -11,9 +9,8 @@ import java.util.List;
 
 /**
  * <p>
- *  Mapper 接口
+ * Mapper 接口
  * </p>
- *
  * @author 虎哥
  * @since 2021-12-22
  */
