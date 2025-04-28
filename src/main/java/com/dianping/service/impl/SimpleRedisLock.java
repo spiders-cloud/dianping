@@ -1,5 +1,6 @@
 package com.dianping.service.impl;
 
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.BooleanUtil;
 import com.dianping.service.ILock;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -22,11 +23,12 @@ public class SimpleRedisLock implements ILock {
     }
 
     private static final String KEY_PREFIX = "lock:";
+    private static final String ID_PREFIX = UUID.randomUUID().toString(true) + "-";
 
     @Override
     public boolean tryLock(long timeoutSec) {
         // 获取线程标识
-        String threadId = String.valueOf(Thread.currentThread().getId());
+        String threadId = ID_PREFIX + Thread.currentThread().getId();
         // 获取锁
         Boolean success = stringRedisTemplate.opsForValue()
                                              .setIfAbsent(KEY_PREFIX + lockName, threadId, timeoutSec,
@@ -36,7 +38,14 @@ public class SimpleRedisLock implements ILock {
 
     @Override
     public void unlock() {
-        // 通过del删除锁
-        stringRedisTemplate.delete(KEY_PREFIX + lockName);
+        // 获取线程标示
+        String threadId = ID_PREFIX + Thread.currentThread().getId();
+        // 获取锁中的标示
+        String id = stringRedisTemplate.opsForValue().get(KEY_PREFIX + lockName);
+        // 判断标示是否一致
+        if (threadId.equals(id)) {
+            // 释放锁
+            stringRedisTemplate.delete(KEY_PREFIX + lockName);
+        }
     }
 }
