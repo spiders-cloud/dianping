@@ -11,6 +11,7 @@ import com.dianping.utils.RedisIdWorker;
 import com.dianping.utils.UserHolder;
 import jakarta.annotation.Resource;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +29,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Resource
     private ISeckillVoucherService seckillVoucherService;
-
     @Resource
     private RedisIdWorker redisIdWorker;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * Seckiill 优惠券
@@ -56,6 +58,47 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             // 库存不足
             return Result.fail("库存不足！");
         }
+
+        // return subStockV3(voucherId);
+        return subStockV4(voucherId);
+    }
+
+    /**
+     * 扣减库存V4
+     * 利用Redis 分布式锁解决超卖问题 - V1
+     * @param voucherId 优惠券 ID
+     * @return {@link Result }
+     */
+    private Result subStockV4(Long voucherId) {
+        Long userId = UserHolder.getUser().getId();
+        // 创建锁对象
+        SimpleRedisLock lock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+        // 获取锁对象
+        boolean isLock = lock.tryLock(1200);
+        // 加锁失败
+        if (!isLock) {
+            return Result.fail("不允许重复下单");
+        }
+        try {
+            // 获取代理对象(事务)
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        } finally {
+            // 释放锁
+            lock.unlock();
+        }
+    }
+
+    /**
+     * 扣减库存：V1、V2、V3
+     * 利用synchronized 锁解决超卖问题
+     * 利用AopContext.currentProxy()获取代理对象（事务）
+     * 利用intern()方法将字符串存入常量池，避免重复创建字符串对象
+     * @param voucherId 优惠券 ID
+     * @return {@link Result }
+     * @problem 无法解决分布式锁问题
+     */
+    private Result subStockV3(Long voucherId) {
         // 5.扣减库存
         // 5.1 V1 直接扣减库存
         // boolean success = seckillVoucherService
@@ -76,9 +119,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             // 获取代理对象（事务）
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
-
         }
     }
+
     @Override
     @Transactional
     public Result createVoucherOrder(Long voucherId) {
