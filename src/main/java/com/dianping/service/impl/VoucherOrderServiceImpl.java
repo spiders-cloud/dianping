@@ -10,6 +10,8 @@ import com.dianping.service.IVoucherOrderService;
 import com.dianping.utils.RedisIdWorker;
 import com.dianping.utils.UserHolder;
 import jakarta.annotation.Resource;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedisIdWorker redisIdWorker;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private RedissonClient redissonClient;
 
     /**
      * Seckiill 优惠券
@@ -60,21 +64,47 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         // return subStockV3(voucherId);
-        return subStockV4(voucherId);
+        // return subStockV4(voucherId);
+        return subStockV5(voucherId);
     }
 
     /**
-     * 扣减库存V4
+     * 扣减库存V5
      * 利用Redis 分布式锁解决超卖问题 - V1
+     * @param voucherId 优惠券 ID
+     * @return {@link Result }
+     */
+    private Result subStockV5(Long voucherId) {
+        Long userId = UserHolder.getUser().getId();
+        // 创建锁对象
+        SimpleRedisLock lock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+        // 获取锁对象
+        boolean isLock = lock.tryLock(1200);
+        // 加锁失败
+        if (!isLock) {
+            return Result.fail("不允许重复下单");
+        }
+        try {
+            // 获取代理对象(事务)
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        } finally {
+            // 释放锁
+            lock.unlock();
+        }
+    }
+
+    /**
+     * 扣减库存V4 - Redisson
      * @param voucherId 优惠券 ID
      * @return {@link Result }
      */
     private Result subStockV4(Long voucherId) {
         Long userId = UserHolder.getUser().getId();
         // 创建锁对象
-        SimpleRedisLock lock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+        RLock lock = redissonClient.getLock("order:" + userId);
         // 获取锁对象
-        boolean isLock = lock.tryLock(1200);
+        boolean isLock = lock.tryLock();
         // 加锁失败
         if (!isLock) {
             return Result.fail("不允许重复下单");
