@@ -69,12 +69,38 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     }
 
     /**
-     * 扣减库存V5
-     * 利用Redis 分布式锁解决超卖问题 - V1
+     * 扣减库存V5- Redisson
      * @param voucherId 优惠券 ID
      * @return {@link Result }
      */
     private Result subStockV5(Long voucherId) {
+        Long userId = UserHolder.getUser().getId();
+        // 创建锁对象
+        RLock lock = redissonClient.getLock("order:" + userId);
+        // 获取锁对象
+        boolean isLock = lock.tryLock();
+        // 加锁失败
+        if (!isLock) {
+            return Result.fail("不允许重复下单");
+        }
+        try {
+            // 获取代理对象(事务)
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        } finally {
+            // 释放锁
+            lock.unlock();
+        }
+    }
+
+
+    /**
+     * 扣减库存V4
+     * 利用Redis 分布式锁解决超卖问题
+     * @param voucherId 优惠券 ID
+     * @return {@link Result }
+     */
+    private Result subStockV4(Long voucherId) {
         Long userId = UserHolder.getUser().getId();
         // 创建锁对象
         SimpleRedisLock lock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
@@ -94,30 +120,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
     }
 
-    /**
-     * 扣减库存V4 - Redisson
-     * @param voucherId 优惠券 ID
-     * @return {@link Result }
-     */
-    private Result subStockV4(Long voucherId) {
-        Long userId = UserHolder.getUser().getId();
-        // 创建锁对象
-        RLock lock = redissonClient.getLock("order:" + userId);
-        // 获取锁对象
-        boolean isLock = lock.tryLock();
-        // 加锁失败
-        if (!isLock) {
-            return Result.fail("不允许重复下单");
-        }
-        try {
-            // 获取代理对象(事务)
-            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-            return proxy.createVoucherOrder(voucherId);
-        } finally {
-            // 释放锁
-            lock.unlock();
-        }
-    }
 
     /**
      * 扣减库存：V1、V2、V3
