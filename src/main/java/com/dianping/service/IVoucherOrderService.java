@@ -13,7 +13,11 @@ import com.dianping.entity.VoucherOrder;
  */
 public interface IVoucherOrderService extends IService<VoucherOrder> {
 
-    Result seckillVoucher(Long voucherId);
+    Result seckillVoucherV2(Long voucherId);
+
+    Result seckillVoucherV3(Long voucherId);
+
+    Result seckillVoucherV1(Long voucherId);
 
     Result createVoucherOrderV1(Long voucherId);
 
