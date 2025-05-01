@@ -10,6 +10,7 @@ import com.dianping.utils.RedisIdWorker;
 import com.dianping.utils.UserHolder;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
@@ -32,6 +33,7 @@ import java.util.concurrent.Executors;
  * @author 虎哥
  * @since 2021-12-22
  */
+@Slf4j
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
@@ -48,7 +50,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     static {
         SECKILL_SCRIPT = new DefaultRedisScript<>();
-        SECKILL_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
+        SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
         SECKILL_SCRIPT.setResultType(Long.class);
     }
 
@@ -128,16 +130,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                                                   orderId.toString());
         // 判断购买资格
         if (result != 0) {
-            //     不为0代表没有资格购买
+            // 不为0代表没有资格购买
             return Result.fail(result == 1 ? "库存不足" : "不能重复下单");
         }
-
+        log.info("用户{}有购买资格", userId);
         // 为0，则有购买资格
         VoucherOrder voucherOrder = new VoucherOrder();
         voucherOrder.setId(redisIdWorker.nextId("order")).setUserId(userId).setVoucherId(voucherId);
         // 放入阻塞队列
         orderTasks.add(voucherOrder);
-
+        log.info("用户{}订单放入阻塞队列", userId);
         // 获取代理对象
         proxy = (IVoucherOrderService) AopContext.currentProxy();
         return Result.ok(orderId);
@@ -287,6 +289,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                                                .eq("voucher_id", voucherOrder.getVoucherId())
                                                .gt("stock", 0) // where id = ? and stock > 0
                                                .update();
+        log.info("扣减库存成功");
         if (!success) {
             // 扣减失败
             log.error("库存不足");
