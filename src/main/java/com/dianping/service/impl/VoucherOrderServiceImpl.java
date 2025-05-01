@@ -2,7 +2,6 @@ package com.dianping.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.dianping.dto.Result;
-import com.dianping.entity.SeckillVoucher;
 import com.dianping.entity.VoucherOrder;
 import com.dianping.mapper.VoucherOrderMapper;
 import com.dianping.service.ISeckillVoucherService;
@@ -13,11 +12,13 @@ import jakarta.annotation.Resource;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.util.Collections;
 
 /**
  * <p>
@@ -38,12 +39,45 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedissonClient redissonClient;
 
+    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
+
+    static {
+        SECKILL_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
+        SECKILL_SCRIPT.setResultType(Long.class);
+    }
+
     /**
-     * Seckiill 优惠券
+     * 秒杀优惠券V2 - 异步方式
      * @param voucherId 优惠券 ID
      * @return {@link Result }
      */
     @Override
+    public Result seckillVoucher(Long voucherId) {
+        // 获取用户·
+        Long userId = UserHolder.getUser().getId();
+        Long orderId = redisIdWorker.nextId("order");
+        // 执行lua脚本
+        Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,
+                                                  Collections.emptyList(),
+                                                  voucherId.toString(),
+                                                  userId.toString(),
+                                                  orderId.toString());
+        // 判断购买资格
+        if (result != 0) {
+            //     不为0代表没有资格购买
+            return Result.fail(result == 1 ? "库存不足" : "不能重复下单");
+        }
+        // TODO：异步下单
+        return Result.ok(orderId);
+    }
+
+    /**
+     * 秒杀优惠券V1 - 串行方式
+     * @param voucherId 优惠券 ID
+     * @return {@link Result }
+     */
+    /* @Override
     public Result seckillVoucher(Long voucherId) {
         // 1.查询优惠券
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
@@ -66,7 +100,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // return subStockV3(voucherId);
         // return subStockV4(voucherId);
         return subStockV5(voucherId);
-    }
+    } */
 
     /**
      * 扣减库存V5- Redisson
