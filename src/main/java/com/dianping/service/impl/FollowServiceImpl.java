@@ -33,6 +33,11 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
     @Resource
     private IUserService userService;
 
+    /**
+     * 是否关注了
+     * @param followUserId 关注用户 ID
+     * @return {@link Result }
+     */
     @Override
     public Result isFollow(Long followUserId) {
         // 1.获取登录用户
@@ -43,6 +48,12 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         return Result.ok(count > 0);
     }
 
+    /**
+     * 关注
+     * @param followUserId 关注用户 ID
+     * @param isFollow     是跟随
+     * @return {@link Result }
+     */
     @Override
     public Result follow(Long followUserId, Boolean isFollow) {
         // 1.获取登录用户
@@ -71,6 +82,11 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         return Result.ok();
     }
 
+    /**
+     * 共同关注
+     * @param id 博主id
+     * @return {@link Result }
+     */
     @Override
     public Result followCommons(Long id) {
         // 1.获取当前用户
