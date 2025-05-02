@@ -1,5 +1,4 @@
-package com.dianping.
-dto;
+package com.dianping.dto;
 
 import lombok.Data;
 

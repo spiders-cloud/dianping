@@ -1,5 +1,4 @@
-package com.dianping.
-entity;
+package com.dianping.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -13,9 +12,8 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 
- * </p>
  *
+ * </p>
  * @author 虎哥
  * @since 2021-12-22
  */
