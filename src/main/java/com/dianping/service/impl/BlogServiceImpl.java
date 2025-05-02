@@ -40,7 +40,10 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         // 获取当前页数据
         List<Blog> records = page.getRecords();
         // 查询用户
-        records.forEach(this::queryBlogUser);
+        records.forEach(blog -> {
+            this.queryBlogUser(blog);
+            this.isBlogLiked(blog);
+        });
         return Result.ok(records);
     }
 
@@ -60,8 +63,18 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         }
         // 2.查询blog有关的用户
         queryBlogUser(blog);
-
+        // 3.查询blog是否被点赞
+        isBlogLiked(blog);
         return Result.ok(blog);
+    }
+
+    private void isBlogLiked(Blog blog) {
+        // 1.获取登录用户
+        Long userId = UserHolder.getUser().getId();
+        // 2.判断当前登录用户是否已经点赞
+        String key = BLOG_LIKED_KEY + blog.getId();
+        Boolean isMember = stringRedisTemplate.opsForSet().isMember(key, userId.toString());
+        blog.setIsLike(BooleanUtil.isTrue(isMember));
     }
 
     @Override
