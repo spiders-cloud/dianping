@@ -1,9 +1,9 @@
 package com.dianping.
 service;
 
-import com.dianping.
-entity.Follow;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.dianping.dto.Result;
+import com.dianping.entity.Follow;
 
 /**
  * <p>
@@ -15,4 +15,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IFollowService extends IService<Follow> {
 
+    Result follow(Long followUserId, Boolean isFollow);
+
+    Result isFollow(Long followUserId);
 }
