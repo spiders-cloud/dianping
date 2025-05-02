@@ -1,12 +1,9 @@
-package com.dianping.
-controller;
+package com.dianping.controller;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
-import com.dianping.
-dto.Result;
-import com.dianping.
-utils.SystemConstants;
+import com.dianping.dto.Result;
+import com.dianping.utils.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +17,11 @@ import java.util.UUID;
 @RequestMapping("upload")
 public class UploadController {
 
+    /**
+     * 上传图片
+     * @param image 图像
+     * @return {@link Result }
+     */
     @PostMapping("blog")
     public Result uploadImage(@RequestParam("file") MultipartFile image) {
         try {
@@ -37,6 +39,11 @@ public class UploadController {
         }
     }
 
+    /**
+     * 删除博客 img
+     * @param filename 文件名
+     * @return {@link Result }
+     */
     @GetMapping("/blog/delete")
     public Result deleteBlogImg(@RequestParam("name") String filename) {
         File file = new File(SystemConstants.IMAGE_UPLOAD_DIR, filename);

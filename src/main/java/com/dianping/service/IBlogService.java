@@ -1,9 +1,9 @@
 package com.dianping.
 service;
 
-import com.dianping.
-entity.Blog;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.dianping.dto.Result;
+import com.dianping.entity.Blog;
 
 /**
  * <p>
@@ -15,4 +15,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IBlogService extends IService<Blog> {
 
+    Result queryHotBlog(Integer current);
+
+    Result queryBlogById(Long id);
+
+    Result likeBlog(Long id);
 }
