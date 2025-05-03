@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -59,8 +61,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 4.1 设置key
         String key = LOGIN_CODE_KEY + phone;
         // 4.2 设置验证码的有效期
-        stringRedisTemplate.opsForValue()
-                           .set(key, code, LOGIN_CODE_TTL, java.util.concurrent.TimeUnit.MINUTES);
+        stringRedisTemplate.opsForValue().set(key, code, LOGIN_CODE_TTL, java.util.concurrent.TimeUnit.MINUTES);
         // 5.发送验证码
         log.debug("发送短信验证码成功，验证码：{}", code);
         // 返回ok
@@ -76,16 +77,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             return Result.fail("手机号格式错误！");
         }
         // 2.从redis中获取验证码并校验
-        String cacheCode = stringRedisTemplate.opsForValue()
-                                              .get(LOGIN_CODE_KEY + phone);
+        String cacheCode = stringRedisTemplate.opsForValue().get(LOGIN_CODE_KEY + phone);
         String code = loginForm.getCode();
         if (cacheCode == null || !cacheCode.equals(code)) {
             // 3.不一致，报错
             return Result.fail("验证码错误");
         }
         // 4.一致，根据手机号查询用户 select * from tb_user where phone = ?
-        User user = query().eq("phone", phone)
-                           .one();
+        User user = query().eq("phone", phone).one();
 
         // 5.判断用户是否存在
         if (user == null) {
@@ -94,19 +93,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
         // 7.保存用户信息到redis中
         // 7.1随机生成token，作为登录令牌
-        String token = UUID.randomUUID()
-                           .toString(true);
+        String token = UUID.randomUUID().toString(true);
         // 7.2将User对象转为HashMap存储
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
         Map<String, Object> userMap = BeanUtil.beanToMap(
-                userDTO, new HashMap<>(), CopyOptions.create()
-                                                     .setIgnoreNullValue(true)
-                                                     .setFieldValueEditor(
-                                                             (fieldName, fieldValue) -> fieldValue.toString()));
+                userDTO,
+                new HashMap<>(),
+                CopyOptions.create().setIgnoreNullValue(true)
+                           .setFieldValueEditor((fieldName, fieldValue) -> fieldValue.toString())
+        );
         // 7.3存储
         String tokenKey = LOGIN_USER_KEY + token;
-        stringRedisTemplate.opsForHash()
-                           .putAll(tokenKey, userMap);
+        stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
         // 7.4设置token有效期
         stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.MINUTES);
 
@@ -114,8 +112,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
     private User createUserWithPhone(String phone) {
-        User user = new User().setPhone(phone)
-                              .setNickName(phone);
+        User user = new User().setPhone(phone).setNickName(phone);
         save(user);
         return user;
     }
@@ -125,10 +122,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 1.删除Redis中的token
         String tokenKey = LOGIN_USER_KEY + token;
         stringRedisTemplate.delete(tokenKey);
-        
+
         // 2.清除ThreadLocal中的用户
         UserHolder.removeUser();
-        
+
+        return Result.ok();
+    }
+
+    /**
+     * 用户签到
+     * @return {@link Result }
+     */
+    @Override
+    public Result sign() {
+        // 1.获取当前登录用户
+        Long userId = UserHolder.getUser().getId();
+        // 2.获取日期
+        LocalDateTime now = LocalDateTime.now();
+        // 3.拼接key
+        String keySuffix = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+        String key = USER_SIGN_KEY + userId + keySuffix;
+        // 4.获取今天是本月的第几天
+        int dayOfMonth = now.getDayOfMonth();
+        // 5.写入Redis SETBIT key offset 1
+        stringRedisTemplate.opsForValue().setBit(key, dayOfMonth - 1, true);
         return Result.ok();
     }
 }
