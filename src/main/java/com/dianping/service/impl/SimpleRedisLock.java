@@ -40,16 +40,23 @@ public class SimpleRedisLock implements ILock {
         // 获取线程标识
         String threadId = ID_PREFIX + Thread.currentThread().getId();
         // 获取锁
-        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + lockName, threadId, timeoutSec,
-                                                                        TimeUnit.SECONDS);
+        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(
+                KEY_PREFIX + lockName,
+                threadId,
+                timeoutSec,
+                TimeUnit.SECONDS
+        );
         return BooleanUtil.isTrue(success);
     }
 
     @Override
     public void unlock() {
         // 调用Lua脚本
-        stringRedisTemplate.execute(UNLOCK_SCRIPT, Collections.singletonList(KEY_PREFIX + lockName),
-                                    ID_PREFIX + Thread.currentThread().getId());
+        stringRedisTemplate.execute(
+                UNLOCK_SCRIPT,
+                Collections.singletonList(KEY_PREFIX + lockName),
+                ID_PREFIX + Thread.currentThread().getId()
+        );
     }
     /* @Override
     public void unlock() {
