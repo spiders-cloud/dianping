@@ -136,6 +136,21 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     /**
+     * 缓存击穿 - 解决方法：逻辑过期
+     * @param id
+     */
+    public void saveShop2Redis(Long id, Long expireSeconds) {
+        // 1.查询店铺数据
+        Shop shop = getById(id);
+        // 2.封装逻辑过期时间
+        RedisData redisData = new RedisData();
+        redisData.setData(shop);
+        redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));
+        // 3.写入redis
+        stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY + id, JSONUtil.toJsonStr(redisData));
+    }
+
+    /**
      * 解决缓存穿透问题 - 这里采用互斥锁解决 + 自旋-双检加锁策略
      * @param id
      * @return
@@ -208,27 +223,6 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     /**
-     * 尝试获取锁
-     * @param key
-     * @return
-     */
-    private boolean tryLock(String key) {
-        // 获取锁+设置过期时间，保证原子性
-        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
-        // log.debug("Thread:{} 加锁，避免缓存击穿", Thread.currentThread().getId());
-        return BooleanUtil.isTrue(flag);
-    }
-
-    /**
-     * 释放锁
-     * @param key
-     */
-    private void unlock(String key) {
-        // log.debug("释放锁，其他线程可读取缓存");
-        stringRedisTemplate.delete(key);
-    }
-
-    /**
      * 解决缓存击穿问题 - 这里采用互斥锁解决 + 递归
      * @param id
      * @return
@@ -281,6 +275,27 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     /**
+     * 尝试获取锁
+     * @param key
+     * @return
+     */
+    private boolean tryLock(String key) {
+        // 获取锁+设置过期时间，保证原子性
+        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
+        // log.debug("Thread:{} 加锁，避免缓存击穿", Thread.currentThread().getId());
+        return BooleanUtil.isTrue(flag);
+    }
+
+    /**
+     * 释放锁
+     * @param key
+     */
+    private void unlock(String key) {
+        // log.debug("释放锁，其他线程可读取缓存");
+        stringRedisTemplate.delete(key);
+    }
+
+    /**
      * 解决缓存穿透问题 - 这里采用空值解决
      * @param id
      * @return
@@ -316,22 +331,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     /**
-     * 缓存击穿 - 解决方法：逻辑过期
-     * @param id
-     */
-    public void saveShop2Redis(Long id, Long expireSeconds) {
-        // 1.查询店铺数据
-        Shop shop = getById(id);
-        // 2.封装逻辑过期时间
-        RedisData redisData = new RedisData();
-        redisData.setData(shop);
-        redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));
-        // 3.写入redis
-        stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY + id, JSONUtil.toJsonStr(redisData));
-    }
-
-    /**
-     * 更新店铺信息
+     * 更新店铺信息 - 缓存双写一致性问题
      * @param shop
      * @return
      */
